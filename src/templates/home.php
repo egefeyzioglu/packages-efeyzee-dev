@@ -7,24 +7,31 @@
  * @var string $searchQuery
  */
 
-// Build the apt source line from the first distribution.
+// Build the setup commands from the first distribution.
 $distNames = array_keys($distributions);
 $firstDist = $distNames[0] ?? 'stable';
 $firstRelease = $distributions[$firstDist] ?? [];
 $components = $firstRelease['Components'] ?? 'main';
-$aptLine = "deb https://{$config['site_name']} {$firstDist} {$components}";
+
+$keyUrl      = $config['signing_key_url'];
+$keyringPath = $config['keyring_path'];
+$sourcesList = $config['sources_list'];
+$siteName    = $config['site_name'];
+
+$setupCmd = "curl -fsSL {$keyUrl} | sudo gpg --dearmor -o {$keyringPath}\n"
+          . "echo \"deb [signed-by={$keyringPath}] https://{$siteName} {$firstDist} {$components}\" | sudo tee /etc/apt/sources.list.d/{$sourcesList}";
 ?>
 
-<!-- Hero / apt source line -->
+<!-- Hero / setup commands -->
 <div class="mb-8">
-    <h1 class="text-2xl sm:text-3xl font-bold text-white mb-2"><?= htmlspecialchars($config['site_desc']) ?></h1>
-    <p class="text-gray-400 mb-4">Browse and download packages from this repository.</p>
+    <h1 class="text-2xl sm:text-3xl font-bold text-gb-fg0 mb-2"><?= htmlspecialchars($config['site_desc']) ?></h1>
+    <p class="text-gb-fg4 mb-4">Browse and download packages from this repository.</p>
 
-    <div class="bg-gray-900 border border-gray-800 rounded-lg p-4 flex items-center justify-between gap-4">
-        <code class="font-mono text-sm text-teal-300 break-all select-all" id="apt-line"><?= htmlspecialchars($aptLine) ?></code>
+    <div class="relative">
+        <pre class="font-mono text-sm text-gb-green+ bg-gb-bg0h border border-gb-bg2 p-4 overflow-x-auto select-all" id="setup-cmd"><?= htmlspecialchars($setupCmd) ?></pre>
         <button
-            onclick="copyAptLine()"
-            class="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white border border-gray-700 transition-all cursor-pointer"
+            onclick="copySetup()"
+            class="absolute top-2 right-2 px-2.5 py-1 text-xs font-medium bg-gb-bg2 text-gb-fg3 hover:text-gb-fg0 hover:bg-gb-bg3 transition-colors cursor-pointer"
             id="copy-btn"
             title="Copy to clipboard"
         >
@@ -42,11 +49,11 @@ $aptLine = "deb https://{$config['site_name']} {$firstDist} {$components}";
             id="search-input"
             value="<?= htmlspecialchars($searchQuery) ?>"
             placeholder="Search packages&hellip;"
-            class="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/30 transition-colors"
+            class="flex-1 bg-gb-bg0h border border-gb-bg2 px-4 py-2.5 text-sm text-gb-fg placeholder-gb-bg4 focus:outline-none focus:border-gb-aqua transition-colors"
         >
         <button
             type="submit"
-            class="px-4 py-2.5 text-sm font-medium rounded-lg bg-teal-600 text-white hover:bg-teal-500 transition-colors cursor-pointer"
+            class="px-4 py-2.5 text-sm font-medium bg-gb-aqua text-gb-bg font-bold hover:bg-gb-aqua+ transition-colors cursor-pointer"
         >Search</button>
     </form>
 
@@ -54,12 +61,12 @@ $aptLine = "deb https://{$config['site_name']} {$firstDist} {$components}";
     <div class="flex items-center gap-2 flex-wrap">
         <a
             href="/"
-            class="px-3 py-1.5 text-xs font-medium rounded-full border transition-colors no-underline <?= $currentDist === null ? 'bg-teal-600 text-white border-teal-600' : 'border-gray-700 text-gray-400 hover:text-white hover:border-gray-500' ?>"
+            class="px-3 py-1.5 text-xs font-medium border transition-colors no-underline <?= $currentDist === null ? 'bg-gb-aqua text-gb-bg border-gb-aqua' : 'border-gb-bg2 text-gb-fg4 hover:text-gb-fg0 hover:border-gb-bg3' ?>"
         >All</a>
         <?php foreach ($distNames as $d): ?>
         <a
             href="/?dist=<?= urlencode($d) ?>"
-            class="px-3 py-1.5 text-xs font-medium rounded-full border transition-colors no-underline <?= $currentDist === $d ? 'bg-teal-600 text-white border-teal-600' : 'border-gray-700 text-gray-400 hover:text-white hover:border-gray-500' ?>"
+            class="px-3 py-1.5 text-xs font-medium border transition-colors no-underline <?= $currentDist === $d ? 'bg-gb-aqua text-gb-bg border-gb-aqua' : 'border-gb-bg2 text-gb-fg4 hover:text-gb-fg0 hover:border-gb-bg3' ?>"
         ><?= htmlspecialchars($d) ?></a>
         <?php endforeach; ?>
     </div>
@@ -67,8 +74,8 @@ $aptLine = "deb https://{$config['site_name']} {$firstDist} {$components}";
 </div>
 
 <?php if ($searchQuery !== ''): ?>
-<p class="text-sm text-gray-400 mb-4">
-    Showing results for <span class="text-teal-400 font-medium">&ldquo;<?= htmlspecialchars($searchQuery) ?>&rdquo;</span>
+<p class="text-sm text-gb-fg4 mb-4">
+    Showing results for <span class="text-gb-yellow+ font-medium">&ldquo;<?= htmlspecialchars($searchQuery) ?>&rdquo;</span>
     &mdash; <?= count($packages) ?> package<?= count($packages) !== 1 ? 's' : '' ?> found.
     <a href="/" class="ml-2">Clear</a>
 </p>
@@ -77,18 +84,17 @@ $aptLine = "deb https://{$config['site_name']} {$firstDist} {$components}";
 <!-- Package Table -->
 <?php if ($packages === []): ?>
 <div class="text-center py-16">
-    <p class="text-gray-500 text-lg">No packages found.</p>
+    <p class="text-gb-gray text-lg">No packages found.</p>
     <?php if ($searchQuery !== ''): ?>
     <a href="/" class="mt-2 inline-block text-sm">Back to all packages</a>
     <?php endif; ?>
 </div>
 <?php else: ?>
 
-<!-- Mobile: card layout / Desktop: table -->
 <div class="overflow-x-auto">
     <table class="w-full text-sm" id="package-table">
         <thead>
-            <tr class="text-left text-xs uppercase tracking-wider text-gray-500 border-b border-gray-800">
+            <tr class="text-left text-xs uppercase tracking-wider text-gb-gray border-b border-gb-bg2">
                 <th class="py-3 pr-4 font-medium">Package</th>
                 <th class="py-3 pr-4 font-medium hidden sm:table-cell">Version</th>
                 <th class="py-3 pr-4 font-medium hidden md:table-cell">Arch</th>
@@ -96,7 +102,7 @@ $aptLine = "deb https://{$config['site_name']} {$firstDist} {$components}";
                 <th class="py-3 font-medium text-right hidden sm:table-cell">Size</th>
             </tr>
         </thead>
-        <tbody class="divide-y divide-gray-800/50">
+        <tbody class="divide-y divide-gb-bg1">
             <?php foreach ($packages as $pkg):
                 $name = $pkg['Package'] ?? '';
                 $version = $pkg['Version'] ?? '';
@@ -107,37 +113,37 @@ $aptLine = "deb https://{$config['site_name']} {$firstDist} {$components}";
                 $size = $pkg['Size'] ?? '';
                 $sizeFormatted = $size !== '' ? formatBytes((int)$size) : '';
             ?>
-            <tr class="group hover:bg-gray-900/50 transition-colors package-row"
+            <tr class="group hover:bg-gb-bg0s transition-colors package-row"
                 data-name="<?= htmlspecialchars(mb_strtolower($name)) ?>"
                 data-desc="<?= htmlspecialchars(mb_strtolower($shortDesc)) ?>">
                 <td class="py-3 pr-4">
-                    <a href="/package/<?= urlencode($name) ?>" class="font-mono font-semibold text-teal-400 hover:text-teal-300 no-underline">
+                    <a href="/package/<?= urlencode($name) ?>" class="font-mono font-semibold no-underline">
                         <?= htmlspecialchars($name) ?>
                     </a>
-                    <span class="sm:hidden text-xs text-gray-500 ml-2 font-mono"><?= htmlspecialchars($version) ?></span>
+                    <span class="sm:hidden text-xs text-gb-gray ml-2 font-mono"><?= htmlspecialchars($version) ?></span>
                 </td>
-                <td class="py-3 pr-4 font-mono text-gray-400 hidden sm:table-cell"><?= htmlspecialchars($version) ?></td>
+                <td class="py-3 pr-4 font-mono text-gb-fg3 hidden sm:table-cell"><?= htmlspecialchars($version) ?></td>
                 <td class="py-3 pr-4 hidden md:table-cell">
-                    <span class="inline-block px-2 py-0.5 text-xs rounded bg-gray-800 text-gray-300 font-mono"><?= htmlspecialchars($arch) ?></span>
+                    <span class="font-mono text-xs text-gb-fg4"><?= htmlspecialchars($arch) ?></span>
                 </td>
-                <td class="py-3 pr-4 text-gray-400 max-w-md truncate"><?= htmlspecialchars($shortDesc) ?></td>
-                <td class="py-3 text-right text-gray-500 font-mono text-xs hidden sm:table-cell whitespace-nowrap"><?= $sizeFormatted ?></td>
+                <td class="py-3 pr-4 text-gb-fg3 max-w-md truncate"><?= htmlspecialchars($shortDesc) ?></td>
+                <td class="py-3 text-right text-gb-gray font-mono text-xs hidden sm:table-cell whitespace-nowrap"><?= $sizeFormatted ?></td>
             </tr>
             <?php endforeach; ?>
         </tbody>
     </table>
 </div>
 
-<p class="mt-4 text-xs text-gray-600">
+<p class="mt-4 text-xs text-gb-bg4">
     <?= count($packages) ?> package<?= count($packages) !== 1 ? 's' : '' ?> available
 </p>
 
 <?php endif; ?>
 
 <script>
-// Copy apt line to clipboard.
-function copyAptLine() {
-    const text = document.getElementById('apt-line').textContent;
+// Copy setup commands to clipboard.
+function copySetup() {
+    const text = document.getElementById('setup-cmd').textContent;
     navigator.clipboard.writeText(text).then(() => {
         const label = document.getElementById('copy-label');
         label.textContent = 'Copied!';
