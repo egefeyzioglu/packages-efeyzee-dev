@@ -42,7 +42,7 @@ server {
 
     # Serve apt repository files directly.
     location ~ ^/(dists|pool)/ {
-        alias /path/to/reprepro/$1;
+        root /path/to/reprepro/;
         autoindex off;
     }
 
